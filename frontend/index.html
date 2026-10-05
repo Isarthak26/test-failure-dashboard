@@ -104,6 +104,67 @@
       padding: 22px;
     }
 
+    .upload-form {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    .upload-form input[type="file"] {
+      flex: 1 1 280px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .upload-form button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 18px;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .upload-form button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .message.error {
+      display: block;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .message.success {
+      display: block;
+      background: #ecfdf5;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .dashboard-empty {
+      margin: 0 0 20px;
+      padding: 18px 22px;
+      border: 1px dashed var(--border);
+      border-radius: 18px;
+      background: #fbfdff;
+      color: var(--muted);
+    }
+
     .panel h2 {
       margin: 0 0 16px;
       font-size: 1.15rem;
@@ -193,7 +254,17 @@
     <section class="hero">
       <h1>Test Failure Visualization Dashboard</h1>
       <p>Upload JUnit XML from CI builds to track failure trends, recurring breakages, and the tests that are most expensive to keep red.</p>
+
+      <form class="upload-form" id="uploadForm">
+        <input id="junitFile" name="file" type="file" accept=".xml,application/xml,text/xml" required />
+        <button type="submit" id="uploadButton">Upload XML</button>
+      </form>
+      <div class="message" id="uploadMessage" role="status" aria-live="polite"></div>
     </section>
+
+    <div class="dashboard-empty" id="dashboardEmptyState" hidden>
+      No builds uploaded yet. Upload a JUnit XML file to start visualizing failures.
+    </div>
 
     <section class="summary-grid" aria-label="Summary cards">
       <article class="summary-card">
@@ -271,6 +342,16 @@
     let topFailuresChart = null;
     let buildHistoryChart = null;
 
+    function setUploadMessage(text, type = 'error') {
+      const element = document.getElementById('uploadMessage');
+      element.className = `message ${type}`;
+      element.textContent = text;
+      if (!text) {
+        element.className = 'message';
+        element.textContent = '';
+      }
+    }
+
     function setSummaryValue(id, value) {
       document.getElementById(id).textContent = value;
     }
@@ -279,6 +360,10 @@
       const target = document.getElementById('latestBuildStatus');
       const safeStatus = status || 'no-builds';
       target.innerHTML = `<span class="status-pill ${safeStatus}">${escapeHtml(safeStatus.replaceAll('-', ' '))}</span>`;
+    }
+
+    function toggleDashboardEmptyState(totalBuilds) {
+      document.getElementById('dashboardEmptyState').hidden = totalBuilds > 0;
     }
 
     async function loadFailureRateChart() {
@@ -337,6 +422,7 @@
       setSummaryValue('totalTests', summary.total_tests ?? 0);
       setSummaryValue('overallFailureRate', `${summary.overall_failure_rate ?? 0}%`);
       setLatestBuildStatus(summary.latest_build_status ?? 'no-builds');
+      toggleDashboardEmptyState(summary.total_builds ?? 0);
     }
 
     function truncateText(text, maxLength = 72) {
@@ -479,18 +565,58 @@
       });
     }
 
+    async function refreshDashboard() {
+      await Promise.all([
+        loadSummaryCards(),
+        loadFailureRateChart(),
+        loadTopFailures(),
+        loadBuildHistoryChart(),
+      ]);
+    }
+
+    async function uploadJUnitFile(event) {
+      event.preventDefault();
+      const fileInput = document.getElementById('junitFile');
+      const uploadButton = document.getElementById('uploadButton');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        setUploadMessage('Please choose a JUnit XML file before uploading.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      uploadButton.disabled = true;
+      setUploadMessage('');
+
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.detail || 'Unable to upload the XML file.');
+        }
+
+        fileInput.value = '';
+        setUploadMessage('Upload successful. Dashboard refreshed.', 'success');
+        await refreshDashboard();
+      } catch (error) {
+        setUploadMessage(error.message || 'Unable to upload the XML file.');
+      } finally {
+        uploadButton.disabled = false;
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
-      loadSummaryCards().catch((error) => {
-        console.error('Failed to load summary cards', error);
-      });
-      loadFailureRateChart().catch((error) => {
-        console.error('Failed to load failure rate chart', error);
-      });
-      loadTopFailures().catch((error) => {
-        console.error('Failed to load top failures chart', error);
-      });
-      loadBuildHistoryChart().catch((error) => {
-        console.error('Failed to load build history chart', error);
+      document.getElementById('uploadForm').addEventListener('submit', uploadJUnitFile);
+
+      refreshDashboard().catch((error) => {
+        console.error('Failed to load dashboard data', error);
       });
     });
   </script>

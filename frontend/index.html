@@ -265,5 +265,64 @@
       </article>
     </section>
   </main>
+
+  <script>
+    let failureRateChart = null;
+
+    async function loadFailureRateChart() {
+      const response = await fetch('/stats/failure-rate');
+      const rows = await response.json();
+      const labels = rows.map((row) => row.build);
+      const values = rows.map((row) => row.failure_rate);
+      const context = document.getElementById('failureRateChart');
+
+      if (failureRateChart) {
+        failureRateChart.destroy();
+      }
+
+      failureRateChart = new Chart(context, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Failure rate (%)',
+            data: values,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.12)',
+            tension: 0.28,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (item) => `Failure rate: ${item.parsed.y}%`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => `${value}%`,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadFailureRateChart().catch((error) => {
+        console.error('Failed to load failure rate chart', error);
+      });
+    });
+  </script>
 </body>
 </html>

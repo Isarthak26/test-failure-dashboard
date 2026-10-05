@@ -135,22 +135,60 @@
     }
 
     .upload-form {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .drop-zone {
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+      padding: 24px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 18px;
+      background: #fff;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: #f8fbff;
+    }
+
+    .drop-zone.drag-over {
+      transform: translateY(-1px);
+    }
+
+    .drop-zone strong {
+      font-size: 1rem;
+    }
+
+    .drop-zone small {
+      color: var(--muted);
+    }
+
+    .drop-zone input[type="file"] {
+      display: none;
+    }
+
+    .file-name {
+      font-size: 0.95rem;
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    .upload-actions {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
-      margin-top: 16px;
     }
 
-    .upload-form input[type="file"] {
-      flex: 1 1 280px;
-      padding: 12px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #fff;
-    }
-
-    .upload-form button {
+    .upload-actions button {
       border: 0;
       border-radius: 12px;
       padding: 12px 18px;
@@ -160,7 +198,7 @@
       cursor: pointer;
     }
 
-    .upload-form button:disabled {
+    .upload-actions button:disabled {
       opacity: 0.65;
       cursor: not-allowed;
     }
@@ -286,8 +324,15 @@
       <p>Upload JUnit XML from CI builds to track failure trends, recurring breakages, and the tests that are most expensive to keep red.</p>
 
       <form class="upload-form" id="uploadForm">
-        <input id="junitFile" name="file" type="file" accept=".xml,application/xml,text/xml" required />
-        <button type="submit" id="uploadButton">Upload XML</button>
+        <label class="drop-zone" id="uploadDropZone" for="junitFile">
+          <strong>Drag and drop a JUnit XML file here</strong>
+          <small>or click to choose a .xml file</small>
+          <span class="file-name" id="selectedFileName">No file selected</span>
+          <input id="junitFile" name="file" type="file" accept=".xml,application/xml,text/xml" />
+        </label>
+        <div class="upload-actions">
+          <button type="submit" id="uploadButton" disabled>Upload XML</button>
+        </div>
       </form>
       <div class="message" id="uploadMessage" role="status" aria-live="polite"></div>
     </section>
@@ -374,6 +419,7 @@
     let failureRateChart = null;
     let topFailuresChart = null;
     let buildHistoryChart = null;
+    let selectedUploadFile = null;
 
     function setChartVisibility(canvasId, emptyStateId, hasData) {
       const canvas = document.getElementById(canvasId);
@@ -390,6 +436,18 @@
         element.className = 'message';
         element.textContent = '';
       }
+    }
+
+    function setSelectedFile(file) {
+      const fileName = document.getElementById('selectedFileName');
+      const uploadButton = document.getElementById('uploadButton');
+      selectedUploadFile = file || null;
+      fileName.textContent = file ? file.name : 'No file selected';
+      uploadButton.disabled = !file;
+    }
+
+    function isXmlFile(file) {
+      return file && (file.name.toLowerCase().endsWith('.xml') || file.type === 'application/xml' || file.type === 'text/xml');
     }
 
     function setSummaryValue(id, value) {
@@ -641,9 +699,8 @@
 
     async function uploadJUnitFile(event) {
       event.preventDefault();
-      const fileInput = document.getElementById('junitFile');
       const uploadButton = document.getElementById('uploadButton');
-      const file = fileInput.files[0];
+      const file = selectedUploadFile;
 
       if (!file) {
         setUploadMessage('Please choose a JUnit XML file before uploading.');
@@ -667,7 +724,8 @@
           throw new Error(payload.detail || 'Unable to upload the XML file.');
         }
 
-        fileInput.value = '';
+        document.getElementById('junitFile').value = '';
+        setSelectedFile(null);
         setUploadMessage('Upload successful. Dashboard refreshed.', 'success');
         await refreshDashboard();
       } catch (error) {
@@ -677,8 +735,55 @@
       }
     }
 
+    function handleFileSelection(file) {
+      if (!file) {
+        setSelectedFile(null);
+        return;
+      }
+
+      if (!isXmlFile(file)) {
+        setSelectedFile(null);
+        setUploadMessage('Please choose a .xml file.');
+        return;
+      }
+
+      setUploadMessage('');
+      setSelectedFile(file);
+    }
+
+    function setupDropZone() {
+      const dropZone = document.getElementById('uploadDropZone');
+      const fileInput = document.getElementById('junitFile');
+
+      fileInput.addEventListener('change', () => {
+        handleFileSelection(fileInput.files[0]);
+      });
+
+      dropZone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+      });
+
+      dropZone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const file = event.dataTransfer.files[0];
+        if (file) {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+          handleFileSelection(file);
+        }
+      });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('uploadForm').addEventListener('submit', uploadJUnitFile);
+      setupDropZone();
 
       refreshDashboard().catch((error) => {
         console.error('Failed to load dashboard data', error);

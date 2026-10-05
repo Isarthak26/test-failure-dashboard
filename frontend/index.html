@@ -459,7 +459,8 @@
     function setLatestBuildStatus(status) {
       const target = document.getElementById('latestBuildStatus');
       const safeStatus = status || 'no-builds';
-      target.innerHTML = `<span class="status-pill ${safeStatus}">${escapeHtml(safeStatus.replaceAll('-', ' '))}</span>`;
+      const pillClass = safeStatus === 'passed' ? 'passed' : safeStatus === 'failed' ? 'failed' : 'skipped';
+      target.innerHTML = `<span class="status-pill ${pillClass}">${escapeHtml(safeStatus.replaceAll('-', ' '))}</span>`;
     }
 
     function toggleDashboardEmptyState(totalBuilds) {
@@ -505,6 +506,10 @@
           maintainAspectRatio: false,
           plugins: {
             legend: { display: false },
+            title: {
+              display: true,
+              text: 'Failure rate (%)',
+            },
             tooltip: {
               callbacks: {
                 label: (item) => `Failure rate: ${item.parsed.y}%`,
@@ -512,8 +517,19 @@
             },
           },
           scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Build',
+              },
+            },
             y: {
-              beginAtZero: true,
+              min: 0,
+              max: 100,
+              title: {
+                display: true,
+                text: 'Failure rate (%)',
+              },
               ticks: {
                 callback: (value) => `${value}%`,
               },

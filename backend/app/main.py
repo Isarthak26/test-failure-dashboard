@@ -6,8 +6,9 @@ from collections import Counter
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from backend.app.db import DEFAULT_DB_PATH, init_db, save_parsed_build
+from backend.app.db import DEFAULT_DB_PATH, fetch_builds, fetch_results, init_db, save_parsed_build
 from backend.app.parser import parse_junit
+from backend.app.stats import failure_rate_by_build
 
 
 app = FastAPI(title="Test Failure Visualization Dashboard")
@@ -43,3 +44,10 @@ async def upload_junit(file: UploadFile = File(...)) -> dict[str, object]:
 		"build_id": build_id,
 		"counts": _summarize_results(parsed_results),
 	}
+
+
+@app.get("/stats/failure-rate")
+def get_failure_rate() -> list[dict[str, object]]:
+	builds = fetch_builds(app.state.db_path)
+	results = fetch_results(app.state.db_path)
+	return failure_rate_by_build(builds, results)

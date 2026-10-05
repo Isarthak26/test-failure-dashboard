@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="pytest" tests="10" failures="3" errors="0" skipped="0" time="1.84" timestamp="2026-10-05T09:00:00">
+    <testcase classname="tests.test_auth" name="test_login_success" time="0.11" />
+    <testcase classname="tests.test_auth" name="test_logout_clears_session" time="0.08" />
+    <testcase classname="tests.test_profile" name="test_user_profile_updates" time="0.17">
+      <failure message="AssertionError: profile display name was not refreshed after save">Expected 'Asha Patel' in response payload, got 'Asha P.'</failure>
+    </testcase>
+    <testcase classname="tests.test_cart" name="test_cart_add_item" time="0.09" />
+    <testcase classname="tests.test_search" name="test_search_filters_results" time="0.15" />
+    <testcase classname="tests.test_export" name="test_export_csv_contains_headers" time="0.13">
+      <failure message="AssertionError: CSV export missing required header">Expected column 'created_at' in header row</failure>
+    </testcase>
+    <testcase classname="tests.test_notifications" name="test_notifications_queue_drains" time="0.24">
+      <failure message="TimeoutError: notification worker did not finish within 5 seconds">Queue size remained non-zero after job execution</failure>
+    </testcase>
+    <testcase classname="tests.test_email" name="test_email_send" time="0.07" />
+    <testcase classname="tests.test_health" name="test_api_health" time="0.03" />
+    <testcase classname="tests.test_billing" name="test_payment_webhook_signature" time="0.18" />
+  </testsuite>
+</testsuites>

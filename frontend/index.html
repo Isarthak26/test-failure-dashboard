@@ -6,49 +6,263 @@
   <title>Test Failure Visualization Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --skipped: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
-      background: #f6f8fb;
-      color: #1f2937;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 18%, var(--bg) 100%);
+      color: var(--text);
     }
+
     .shell {
-      max-width: 1100px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 40px 24px;
+      padding: 32px 24px 56px;
     }
-    .card {
-      background: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+
+    .hero,
+    .panel,
+    .summary-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .hero {
+      padding: 28px;
       margin-bottom: 20px;
     }
-    h1 { margin-top: 0; }
-    .chart-wrap { height: 320px; }
-    .muted { color: #6b7280; }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 72ch;
+      line-height: 1.6;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .summary-card {
+      padding: 20px;
+      min-height: 122px;
+    }
+
+    .summary-card .label {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-bottom: 10px;
+    }
+
+    .summary-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .summary-card .note {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 0.92rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .panel h2 {
+      margin: 0 0 16px;
+      font-size: 1.15rem;
+    }
+
+    .chart-wrap {
+      height: 320px;
+    }
+
+    .chart-wrap canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .empty-state {
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      color: var(--muted);
+      background: #fafbff;
+      text-align: center;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .status-pill.failed {
+      background: #fef2f2;
+      color: var(--danger);
+    }
+
+    .status-pill.passed {
+      background: #ecfdf5;
+      color: var(--success);
+    }
+
+    .status-pill.skipped {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <main class="shell">
-    <section class="card">
+    <section class="hero">
       <h1>Test Failure Visualization Dashboard</h1>
-      <p class="muted">Placeholder UI for visualizing JUnit failures across builds and over time.</p>
+      <p>Upload JUnit XML from CI builds to track failure trends, recurring breakages, and the tests that are most expensive to keep red.</p>
     </section>
 
-    <section class="card">
-      <h2>Failure Trend</h2>
-      <div class="chart-wrap">
-        <canvas id="failureTrendChart"></canvas>
-      </div>
+    <section class="summary-grid" aria-label="Summary cards">
+      <article class="summary-card">
+        <div class="label">Total builds</div>
+        <div class="value" id="totalBuilds">0</div>
+        <div class="note">Latest uploads in the dashboard</div>
+      </article>
+      <article class="summary-card">
+        <div class="label">Total tests</div>
+        <div class="value" id="totalTests">0</div>
+        <div class="note">Across all uploaded builds</div>
+      </article>
+      <article class="summary-card">
+        <div class="label">Overall failure rate</div>
+        <div class="value" id="overallFailureRate">0%</div>
+        <div class="note">Failed and errored tests vs total tests</div>
+      </article>
+      <article class="summary-card">
+        <div class="label">Latest build status</div>
+        <div class="value" id="latestBuildStatus"><span class="status-pill">No data</span></div>
+        <div class="note">Status for the newest uploaded build</div>
+      </article>
     </section>
 
-    <section class="card">
-      <h2>Top Failing Tests</h2>
-      <div class="chart-wrap">
-        <canvas id="topFailuresChart"></canvas>
-      </div>
+    <section class="grid">
+      <article class="panel">
+        <h2>Failure rate by build</h2>
+        <div class="chart-wrap">
+          <canvas id="failureRateChart"></canvas>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Top failing tests</h2>
+        <div class="chart-wrap">
+          <canvas id="topFailuresChart"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>Build history</h2>
+        <div class="chart-wrap">
+          <canvas id="buildHistoryChart"></canvas>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Recurring failures</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Test</th>
+                <th>Failures</th>
+                <th>Last error</th>
+              </tr>
+            </thead>
+            <tbody id="recurringFailuresBody">
+              <tr>
+                <td colspan="3">
+                  <div class="empty-state">No build data yet. Upload a JUnit XML file to populate the dashboard.</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
     </section>
   </main>
 </body>

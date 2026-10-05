@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from backend.app.db import DEFAULT_DB_PATH, fetch_builds, fetch_results, init_db, save_parsed_build
 from backend.app.parser import parse_junit
 from backend.app.stats import build_history, failure_rate_by_build, summary_stats, top_failing_tests
+
+
+FRONTEND_INDEX = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
 
 
 app = FastAPI(title="Test Failure Visualization Dashboard")
@@ -18,6 +23,11 @@ app.state.db_path = DEFAULT_DB_PATH
 @app.on_event("startup")
 def _startup() -> None:
 	init_db(app.state.db_path)
+
+
+@app.get("/")
+def home() -> FileResponse:
+	return FileResponse(FRONTEND_INDEX, media_type="text/html")
 
 
 def _summarize_results(results: list[dict[str, object]]) -> dict[str, int]:

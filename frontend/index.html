@@ -104,6 +104,36 @@
       padding: 22px;
     }
 
+    .chart-card {
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-stage {
+      position: relative;
+      flex: 1;
+      min-height: 300px;
+    }
+
+    .chart-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      border-radius: 16px;
+      color: var(--muted);
+      background: #fafbff;
+      text-align: center;
+    }
+
+    .chart-stage canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
     .upload-form {
       display: flex;
       gap: 12px;
@@ -290,25 +320,28 @@
     </section>
 
     <section class="grid">
-      <article class="panel">
+      <article class="panel chart-card">
         <h2>Failure rate by build</h2>
-        <div class="chart-wrap">
+        <div class="chart-stage">
+          <div class="chart-placeholder" id="failureRateEmptyState">Upload a build to see this chart</div>
           <canvas id="failureRateChart"></canvas>
         </div>
       </article>
 
-      <article class="panel">
+      <article class="panel chart-card">
         <h2>Top failing tests</h2>
-        <div class="chart-wrap">
+        <div class="chart-stage">
+          <div class="chart-placeholder" id="topFailuresEmptyState">Upload a build to see this chart</div>
           <canvas id="topFailuresChart"></canvas>
         </div>
       </article>
     </section>
 
     <section class="grid">
-      <article class="panel">
+      <article class="panel chart-card">
         <h2>Build history</h2>
-        <div class="chart-wrap">
+        <div class="chart-stage">
+          <div class="chart-placeholder" id="buildHistoryEmptyState">Upload a build to see this chart</div>
           <canvas id="buildHistoryChart"></canvas>
         </div>
       </article>
@@ -342,6 +375,13 @@
     let topFailuresChart = null;
     let buildHistoryChart = null;
 
+    function setChartVisibility(canvasId, emptyStateId, hasData) {
+      const canvas = document.getElementById(canvasId);
+      const emptyState = document.getElementById(emptyStateId);
+      canvas.hidden = !hasData;
+      emptyState.hidden = hasData;
+    }
+
     function setUploadMessage(text, type = 'error') {
       const element = document.getElementById('uploadMessage');
       element.className = `message ${type}`;
@@ -369,12 +409,20 @@
     async function loadFailureRateChart() {
       const response = await fetch('/stats/failure-rate');
       const rows = await response.json();
+      const hasData = rows.length > 0;
       const labels = rows.map((row) => row.build);
       const values = rows.map((row) => row.failure_rate);
       const context = document.getElementById('failureRateChart');
 
+      setChartVisibility('failureRateChart', 'failureRateEmptyState', hasData);
+
       if (failureRateChart) {
         failureRateChart.destroy();
+        failureRateChart = null;
+      }
+
+      if (!hasData) {
+        return;
       }
 
       failureRateChart = new Chart(context, {
@@ -466,12 +514,21 @@
     async function loadTopFailures() {
       const response = await fetch('/stats/top-failures');
       const rows = await response.json();
+      const hasData = rows.length > 0;
       const labels = rows.map((row) => row.test_name);
       const values = rows.map((row) => row.fail_count);
       const context = document.getElementById('topFailuresChart');
 
+      setChartVisibility('topFailuresChart', 'topFailuresEmptyState', hasData);
+
       if (topFailuresChart) {
         topFailuresChart.destroy();
+        topFailuresChart = null;
+      }
+
+      if (!hasData) {
+        renderRecurringFailuresTable(rows);
+        return;
       }
 
       topFailuresChart = new Chart(context, {
@@ -509,11 +566,19 @@
     async function loadBuildHistoryChart() {
       const response = await fetch('/stats/builds');
       const rows = await response.json();
+      const hasData = rows.length > 0;
       const labels = rows.map((row) => row.build);
       const context = document.getElementById('buildHistoryChart');
 
+      setChartVisibility('buildHistoryChart', 'buildHistoryEmptyState', hasData);
+
       if (buildHistoryChart) {
         buildHistoryChart.destroy();
+        buildHistoryChart = null;
+      }
+
+      if (!hasData) {
+        return;
       }
 
       buildHistoryChart = new Chart(context, {

@@ -268,6 +268,7 @@
 
   <script>
     let failureRateChart = null;
+    let topFailuresChart = null;
 
     async function loadFailureRateChart() {
       const response = await fetch('/stats/failure-rate');
@@ -318,9 +319,93 @@
       });
     }
 
+    function truncateText(text, maxLength = 72) {
+      if (!text || text.length <= maxLength) {
+        return text || '';
+      }
+      return `${text.slice(0, maxLength - 1)}…`;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function renderRecurringFailuresTable(rows) {
+      const body = document.getElementById('recurringFailuresBody');
+      if (!rows.length) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="3">
+              <div class="empty-state">No recurring failures yet. Upload more builds to identify repeat offenders.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      body.innerHTML = rows.map((row) => `
+        <tr>
+          <td>${escapeHtml(row.test_name)}</td>
+          <td>${row.fail_count}</td>
+          <td title="${escapeHtml(row.last_error || '')}">${escapeHtml(truncateText(row.last_error || 'No error message available'))}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadTopFailures() {
+      const response = await fetch('/stats/top-failures');
+      const rows = await response.json();
+      const labels = rows.map((row) => row.test_name);
+      const values = rows.map((row) => row.fail_count);
+      const context = document.getElementById('topFailuresChart');
+
+      if (topFailuresChart) {
+        topFailuresChart.destroy();
+      }
+
+      topFailuresChart = new Chart(context, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Failure count',
+            data: values,
+            backgroundColor: '#dc2626',
+            borderRadius: 10,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0,
+              },
+            },
+          },
+        },
+      });
+
+      renderRecurringFailuresTable(rows);
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       loadFailureRateChart().catch((error) => {
         console.error('Failed to load failure rate chart', error);
+      });
+      loadTopFailures().catch((error) => {
+        console.error('Failed to load top failures chart', error);
       });
     });
   </script>

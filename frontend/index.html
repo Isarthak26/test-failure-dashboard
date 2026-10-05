@@ -269,6 +269,17 @@
   <script>
     let failureRateChart = null;
     let topFailuresChart = null;
+    let buildHistoryChart = null;
+
+    function setSummaryValue(id, value) {
+      document.getElementById(id).textContent = value;
+    }
+
+    function setLatestBuildStatus(status) {
+      const target = document.getElementById('latestBuildStatus');
+      const safeStatus = status || 'no-builds';
+      target.innerHTML = `<span class="status-pill ${safeStatus}">${escapeHtml(safeStatus.replaceAll('-', ' '))}</span>`;
+    }
 
     async function loadFailureRateChart() {
       const response = await fetch('/stats/failure-rate');
@@ -317,6 +328,15 @@
           },
         },
       });
+    }
+
+    async function loadSummaryCards() {
+      const response = await fetch('/stats/summary');
+      const summary = await response.json();
+      setSummaryValue('totalBuilds', summary.total_builds ?? 0);
+      setSummaryValue('totalTests', summary.total_tests ?? 0);
+      setSummaryValue('overallFailureRate', `${summary.overall_failure_rate ?? 0}%`);
+      setLatestBuildStatus(summary.latest_build_status ?? 'no-builds');
     }
 
     function truncateText(text, maxLength = 72) {
@@ -400,12 +420,77 @@
       renderRecurringFailuresTable(rows);
     }
 
+    async function loadBuildHistoryChart() {
+      const response = await fetch('/stats/builds');
+      const rows = await response.json();
+      const labels = rows.map((row) => row.build);
+      const context = document.getElementById('buildHistoryChart');
+
+      if (buildHistoryChart) {
+        buildHistoryChart.destroy();
+      }
+
+      buildHistoryChart = new Chart(context, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Passed',
+              data: rows.map((row) => row.passed),
+              backgroundColor: '#16a34a',
+              stack: 'builds',
+            },
+            {
+              label: 'Failed',
+              data: rows.map((row) => row.failed),
+              backgroundColor: '#dc2626',
+              stack: 'builds',
+            },
+            {
+              label: 'Skipped',
+              data: rows.map((row) => row.skipped),
+              backgroundColor: '#9ca3af',
+              stack: 'builds',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+            },
+          },
+          scales: {
+            x: {
+              stacked: true,
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              ticks: {
+                precision: 0,
+              },
+            },
+          },
+        },
+      });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
+      loadSummaryCards().catch((error) => {
+        console.error('Failed to load summary cards', error);
+      });
       loadFailureRateChart().catch((error) => {
         console.error('Failed to load failure rate chart', error);
       });
       loadTopFailures().catch((error) => {
         console.error('Failed to load top failures chart', error);
+      });
+      loadBuildHistoryChart().catch((error) => {
+        console.error('Failed to load build history chart', error);
       });
     });
   </script>

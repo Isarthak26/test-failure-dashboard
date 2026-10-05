@@ -147,3 +147,34 @@ def test_build_history_endpoint_returns_per_build_counts(tmp_path: Path) -> None
 		{"build": "build_4.xml", "passed": 6, "failed": 4, "skipped": 0},
 		{"build": "build_5.xml", "passed": 7, "failed": 3, "skipped": 0},
 	]
+
+
+def test_load_sample_endpoint_loads_builds_in_order(tmp_path: Path) -> None:
+	client = make_client(tmp_path)
+
+	response = client.post("/load-sample")
+
+	assert response.status_code == 200
+	payload = response.json()
+	assert payload["build_count"] == 5
+	assert [build["name"] for build in payload["loaded_builds"]] == [
+		"build_1.xml",
+		"build_2.xml",
+		"build_3.xml",
+		"build_4.xml",
+		"build_5.xml",
+	]
+	assert fetch_builds(app.state.db_path)[0]["name"] == "build_1.xml"
+	assert len(fetch_results(app.state.db_path)) == 50
+
+
+def test_clear_data_endpoint_removes_all_builds_and_results(tmp_path: Path) -> None:
+	client = make_client(tmp_path)
+	upload_sample_builds(client)
+
+	response = client.delete("/data")
+
+	assert response.status_code == 200
+	assert response.json() == {"status": "cleared"}
+	assert fetch_builds(app.state.db_path) == []
+	assert fetch_results(app.state.db_path) == []

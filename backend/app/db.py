@@ -8,6 +8,7 @@ from typing import Any
 
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent / "test_failures.db"
+SAMPLE_DATA_DIR = Path(__file__).resolve().parents[2] / "sample_data"
 
 
 def get_connection(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -68,6 +69,23 @@ def save_parsed_build(
 			],
 		)
 		return build_id
+
+
+def clear_database(db_path: str | Path = DEFAULT_DB_PATH) -> None:
+	with get_connection(db_path) as connection:
+		connection.execute("DELETE FROM test_results")
+		connection.execute("DELETE FROM builds")
+		connection.execute("DELETE FROM sqlite_sequence WHERE name IN ('test_results', 'builds')")
+
+
+def load_sample_builds(db_path: str | Path = DEFAULT_DB_PATH) -> list[dict[str, Any]]:
+	from backend.app.parser import parse_junit
+
+	loaded_builds: list[dict[str, Any]] = []
+	for sample_file in sorted(SAMPLE_DATA_DIR.glob("build_*.xml")):
+		build_id = save_parsed_build(db_path, sample_file.name, parse_junit(sample_file.read_bytes()))
+		loaded_builds.append({"id": build_id, "name": sample_file.name})
+	return loaded_builds
 
 
 def fetch_builds(db_path: str | Path = DEFAULT_DB_PATH) -> list[dict[str, Any]]:

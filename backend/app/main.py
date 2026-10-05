@@ -8,7 +8,15 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from backend.app.db import DEFAULT_DB_PATH, fetch_builds, fetch_results, init_db, save_parsed_build
+from backend.app.db import (
+	DEFAULT_DB_PATH,
+	clear_database,
+	fetch_builds,
+	fetch_results,
+	init_db,
+	load_sample_builds,
+	save_parsed_build,
+)
 from backend.app.parser import parse_junit
 from backend.app.stats import build_history, failure_rate_by_build, summary_stats, top_failing_tests
 
@@ -54,6 +62,22 @@ async def upload_junit(file: UploadFile = File(...)) -> dict[str, object]:
 		"build_id": build_id,
 		"counts": _summarize_results(parsed_results),
 	}
+
+
+@app.post("/load-sample")
+def load_sample_data() -> dict[str, object]:
+	clear_database(app.state.db_path)
+	loaded_builds = load_sample_builds(app.state.db_path)
+	return {
+		"loaded_builds": loaded_builds,
+		"build_count": len(loaded_builds),
+	}
+
+
+@app.delete("/data")
+def clear_data() -> dict[str, str]:
+	clear_database(app.state.db_path)
+	return {"status": "cleared"}
 
 
 @app.get("/stats/failure-rate")

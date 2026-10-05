@@ -332,6 +332,8 @@
         </label>
         <div class="upload-actions">
           <button type="submit" id="uploadButton" disabled>Upload XML</button>
+          <button type="button" id="loadSampleButton">Load sample data</button>
+          <button type="button" id="clearDataButton">Clear data</button>
         </div>
       </form>
       <div class="message" id="uploadMessage" role="status" aria-live="polite"></div>
@@ -697,6 +699,52 @@
       ]);
     }
 
+    async function loadSampleData() {
+      const loadButton = document.getElementById('loadSampleButton');
+      loadButton.disabled = true;
+      setUploadMessage('');
+
+      try {
+        const response = await fetch('/load-sample', { method: 'POST' });
+        if (!response.ok) {
+          throw new Error('Unable to load sample data.');
+        }
+
+        setUploadMessage('Sample data loaded. Dashboard refreshed.', 'success');
+        await refreshDashboard();
+      } catch (error) {
+        setUploadMessage(error.message || 'Unable to load sample data.');
+      } finally {
+        loadButton.disabled = false;
+      }
+    }
+
+    async function clearData() {
+      const clearButton = document.getElementById('clearDataButton');
+      if (!window.confirm('Clear all uploaded data?')) {
+        return;
+      }
+
+      clearButton.disabled = true;
+      setUploadMessage('');
+
+      try {
+        const response = await fetch('/data', { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error('Unable to clear data.');
+        }
+
+        setUploadMessage('All data cleared. Dashboard refreshed.', 'success');
+        setSelectedFile(null);
+        document.getElementById('junitFile').value = '';
+        await refreshDashboard();
+      } catch (error) {
+        setUploadMessage(error.message || 'Unable to clear data.');
+      } finally {
+        clearButton.disabled = false;
+      }
+    }
+
     async function uploadJUnitFile(event) {
       event.preventDefault();
       const uploadButton = document.getElementById('uploadButton');
@@ -783,6 +831,8 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('uploadForm').addEventListener('submit', uploadJUnitFile);
+      document.getElementById('loadSampleButton').addEventListener('click', loadSampleData);
+      document.getElementById('clearDataButton').addEventListener('click', clearData);
       setupDropZone();
 
       refreshDashboard().catch((error) => {

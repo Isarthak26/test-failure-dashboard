@@ -8,7 +8,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from backend.app.db import DEFAULT_DB_PATH, fetch_builds, fetch_results, init_db, save_parsed_build
 from backend.app.parser import parse_junit
-from backend.app.stats import failure_rate_by_build
+from backend.app.stats import failure_rate_by_build, top_failing_tests
 
 
 app = FastAPI(title="Test Failure Visualization Dashboard")
@@ -51,3 +51,9 @@ def get_failure_rate() -> list[dict[str, object]]:
 	builds = fetch_builds(app.state.db_path)
 	results = fetch_results(app.state.db_path)
 	return failure_rate_by_build(builds, results)
+
+
+@app.get("/stats/top-failures")
+def get_top_failures() -> list[dict[str, object]]:
+	results = fetch_results(app.state.db_path)
+	return top_failing_tests(results)

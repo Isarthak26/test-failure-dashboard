@@ -23,3 +23,23 @@ def failure_rate_by_build(
 		summary.append({"build": build["name"], "failure_rate": failure_rate})
 
 	return summary
+
+
+def top_failing_tests(
+	test_results: list[dict[str, Any]],
+	limit: int = 10,
+) -> list[dict[str, Any]]:
+	failures: dict[str, dict[str, Any]] = {}
+	for result in test_results:
+		if result["status"] not in {"failed", "error"}:
+			continue
+
+		test_name = str(result["test_name"])
+		entry = failures.setdefault(test_name, {"test_name": test_name, "fail_count": 0, "last_error": None})
+		entry["fail_count"] += 1
+		entry["last_error"] = result.get("error_message")
+
+	return sorted(
+		failures.values(),
+		key=lambda item: (-int(item["fail_count"]), str(item["test_name"])),
+	)[:limit]
